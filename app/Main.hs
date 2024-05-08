@@ -86,10 +86,10 @@ render world =
         TalkBox -> renderTalkBox world getWelcomeLevelText
 
 main :: IO ()
-main = --playIO window white 7 initWorld render eventHandler updateWorld
+main = playIO window white 7 initWorld render eventHandler updateWorld
     --quickCheck prop_revapp
     --quickCheck prop_split_inv
-    prop_cmdList_identity
+    --prop_cmdList_identity
     {-do
         putStrLn "Enter a command: "
         input <- getLine
