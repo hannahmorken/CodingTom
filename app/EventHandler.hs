@@ -64,7 +64,7 @@ handleGame (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
         then do
             case parse statements "" (unwords (code world)) of
                 Left _ -> return world {codeColor = red}
-                Right stmts -> return $ S.execState (evalMult' stmts) (world {codeColor = black})
+                Right stmts -> return $ S.execState (evalMult stmts) (world {codeColor = black})
 
     else if pointInBox mousePos (getUpperCorner emptyButton) (getLowerCorner emptyButton)
         then return $ world {code = [], codeColor = black}

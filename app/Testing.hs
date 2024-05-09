@@ -100,7 +100,7 @@ prop_check_commandQueue grid =
     in case stmt of
         Nothing -> discard
         Just stmt -> let
-            world = execState (eval' stmt) (initWorldGame 1 grid)
+            world = execState (eval stmt) (initWorldGame 1 grid)
             in commandQueue (tom world) == words input
 
 parseStmt :: String -> Maybe Statement

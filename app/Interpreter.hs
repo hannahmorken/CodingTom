@@ -25,12 +25,12 @@ data State' = Blocked
     deriving (Show)
 
 data Statement =
-    While State' [Statement] |
+    While State' Statement |
     If State' Statement Statement | CmdList [Command]
     deriving (Show)
 
-state' :: Parser State'
-state' = Blocked <$ string "blocked"
+state :: Parser State'
+state = Blocked <$ string "blocked"
     <|> NotBlocked <$ string "notBlocked"
     <|> Finished <$ string "finished"
     <|> NotFinished <$ string "notFinished"
@@ -47,13 +47,13 @@ commands = some command
 
 ifStatement :: Parser Statement
 ifStatement = If <$> (
-    string "if" *> space *> state' <* space) 
+    string "if" *> space *> state <* space) 
     <*> (char '(' *> statement <* space) 
     <*> (string "else" *> statement <* char ')')
 
 statement :: Parser Statement
 statement = space *> choice
-    [While <$> (string "while" *> space *> state') <*> (space *> char '<' *> statements <* char '>'),
+    [While <$> (string "while" *> space *> state) <*> (space *> char '(' *> statement <* char ')'),
     ifStatement,
     --If <$> (string "if" *> space *> state' <* string " then") <*> (space *> char '(' *> statement <* char ')'),
     CmdList <$> commands] <* space
@@ -62,32 +62,28 @@ statements :: Parser [Statement]
 statements = some statement
 
 -- TODO: Make this prettier
-eval' :: Statement -> Interpreter ()
-eval' (CmdList []) = return ()
-eval' (CmdList (c:cs)) = do
+eval :: Statement -> Interpreter ()
+eval (CmdList []) = return ()
+eval (CmdList (c:cs)) = do
     case c of
         Walk -> evalCommand "walk"
         TurnAround -> evalCommand "turnAround"
         TurnLeft -> evalCommand "turnLeft"
         TurnRight -> evalCommand "turnRight"
-    eval' (CmdList cs)
+    eval (CmdList cs)
 
-eval' (If state stmt elseStmt) = do
+eval (If state stmt elseStmt) = do
     world <- S.get
     if readState state world 
-        then eval' stmt
-        else eval' elseStmt
+        then eval stmt
+        else eval elseStmt
 
-{-eval' (If state stmt) = do
-    world <- S.get
-    when (readState state world) $ eval' stmt-}
-
-eval' (While state stmts) = do
+eval (While state stmt) = do
     world <- S.get
     let cmdQ = commandQueue (tom world)
     when (readState state world && (length cmdQ < 20)) $ do
-        evalMult' stmts
-        eval' (While state stmts)
+        eval stmt
+        eval (While state stmt)
 
 evalCommand :: String -> Interpreter ()
 evalCommand cmd = do
@@ -96,8 +92,11 @@ evalCommand cmd = do
     let newTom = t {commandQueue = commandQueue t ++ [cmd]}
     S.put world {tom = newTom}
 
-evalMult' :: [Statement] -> Interpreter ()
-evalMult' = mapM_ eval'
+evalMult :: [Statement] -> Interpreter ()
+evalMult [] = return ()
+evalMult (stmt:stmts) = do
+    eval stmt
+    evalMult stmts
 
 readState :: State' -> World -> Bool
 readState Blocked world = isBlocked (tom world) (grid world)

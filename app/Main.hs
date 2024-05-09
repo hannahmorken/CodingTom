@@ -74,7 +74,7 @@ renderGame world = do
     putStrLn $ "commandQ: " ++ show (commandQueue (tom world))
     putStrLn ""
     --putStrLn $ "commands: " ++ unwords (commandQueue (tom world))
-    --putStrLn $ "code: " ++ unwords (code world)
+    putStrLn $ "code: " ++ unwords (code world)
     --putStrLn $ "tom direction" ++ printDir (dir (tom world))
     return $ pictures [
         gameMap,
