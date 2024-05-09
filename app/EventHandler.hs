@@ -24,10 +24,10 @@ handleQuit mousePos world =
 
 handleMenu :: Event -> World -> Grid -> IO World
 handleMenu (EventMotion mousePos) world _ = checkHover mousePos world [playGameButton]
-handleMenu (EventKey (MouseButton LeftButton) Down _ mousePos) world grid = do
+handleMenu (EventKey (MouseButton LeftButton) Down _ mousePos) world g = do
     _ <- handleQuit mousePos world
     if pointInBox mousePos (getUpperCorner playGameButton) (getLowerCorner playGameButton)
-        then return $ initWorldGame 1 grid
+        then return $ initWorldGame 1 g
         else return world
 handleMenu _ world _ = return world
 
@@ -53,8 +53,9 @@ handleGame (EventKey (Char c) Down _ _) world =
         else return $ typeChar world c
 
 handleGame (EventKey (SpecialKey KeyLeft) Down _ _) world = return $ world {code = backSpace (code world)}
-handleGame (EventMotion mousePos) world = checkHover mousePos world gameButtons
 handleGame (EventKey (SpecialKey KeyEnter) Down _ _) world = return $ world {code = newLine (code world)}
+
+handleGame (EventMotion mousePos) world = checkHover mousePos world gameButtons
 
 handleGame (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
     _ <- handleQuit mousePos world
@@ -64,7 +65,6 @@ handleGame (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
             case parse statements "" (unwords (code world)) of
                 Left _ -> return world {codeColor = red}
                 Right stmts -> return $ S.execState (evalMult' stmts) (world {codeColor = black})
-                    --return $ world {tom = evalMult stmts (tom world) grid}
 
     else if pointInBox mousePos (getUpperCorner emptyButton) (getLowerCorner emptyButton)
         then return $ world {code = [], codeColor = black}

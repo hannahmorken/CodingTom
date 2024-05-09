@@ -1,6 +1,5 @@
 module GameCore where
 import Graphics.Gloss
-import Graphics.Gloss.Interface.IO.Game
 import ImageLoader
 
 import Data.List (find)
@@ -15,7 +14,7 @@ data Tom = Tom {
     walkFrame :: Int,
     endPoint :: Point,
     commandQueue :: [String]
-} deriving (Eq)
+} deriving (Eq, Show)
 
 data World = World {
     tom :: Tom,
@@ -27,11 +26,11 @@ data World = World {
     codeColor :: Color
 }
 
-data Direction = North | South | West | East deriving (Eq)
+data Direction = North | South | West | East deriving (Eq, Show)
 
 data GameState = Menu | Game | TalkBox
 
-data Grid = Grid Int [(Float, Float, Char)]
+data Grid = Grid Int [(Float, Float, Char)] deriving (Show)
 
 data Button = Button {
     middle :: Point,
@@ -66,12 +65,12 @@ startTom = Tom {
 }
 
 initWorldGame :: Int -> Grid -> World
-initWorldGame level grid = World {
+initWorldGame l g = World {
     tom = startTom,
     code = ["Hello!"],
     gameState = TalkBox,
-    level = level,
-    grid = grid,
+    level = l,
+    grid = g,
     hover = Nothing,
     codeColor = black
 }
@@ -170,30 +169,16 @@ getLowerCorner button = (fst (middle button) + (width button/2), snd (middle but
 -- Game logic --
 
 getSeg :: Grid -> Point -> Char
-getSeg (Grid name grid) (x,y) =
-    case find (\(a,b,_) -> a == yDiv y cellSize && b == xDiv x cellSize) grid of
-        Just (a,b,c) -> c
+getSeg (Grid _ g) (x,y) =
+    case find (\(a,b,_) -> a == yDiv y cellSize && b == xDiv x cellSize) g of
+        Just (_,_,c) -> c
         Nothing -> 'E'
         where
-            yDiv x y = fromIntegral (floor $ (yCorner - x) / y)
-            xDiv x y = fromIntegral (floor $ (xCorner + x) / y)
+            yDiv a b = fromIntegral (floor $ (yCorner - a) / b)
+            xDiv a b = fromIntegral (floor $ (xCorner + a) / b)
 
 isAtGoal :: Tom -> Grid -> Bool
-isAtGoal tom grid = getSeg grid (pos tom) == 'G'
-
-hasStopped :: World -> Bool
-hasStopped world = 
-    let tom' = tom world in
-    walkFrame tom' == 1 &&
-    null (commandQueue tom') &&
-    not (isAtGoal tom' (grid world)) &&
-    tom' /= startTom
-
-wrongCode :: World -> World
-wrongCode world =
-    if hasStopped world
-        then world {code = []}
-        else world
+isAtGoal tom g = getSeg g (pos tom) == 'G'
 
 levelComplete :: World -> World
 levelComplete world =
@@ -210,7 +195,7 @@ drawTom images world = translate x y $ images !! (walkFrame (tom world) `mod` le
     (x, y) = pos (tom world)
 
 getWelcomeLevelText :: Int -> [String]
-getWelcomeLevelText 2 =
+getWelcomeLevelText 1 =
     ["Hello and welcome to Coding Tom! My name is Tom, and together",
     "we will learn how to code! I need help to get through a series of",
     "labyrinths, and your code will help me to do just that! Give me",
@@ -225,28 +210,46 @@ getWelcomeLevelText 2 =
     "command in a new line.",
     "",
     "Psst! This is one unit"]
-getWelcomeLevelText 1 =
+getWelcomeLevelText 2 =
     ["That was great! You have just written your first few lines of code,",
     "and we are already on to level 2! For this next level I see I need",
     "to take a turn to the left at one point. This is easy though, just",
-    "type 'turn left', and I'll turn left. Remember to write the turning",
-    "command at the right place. Good luck!"
+    "type 'turnLeft', and I'll turn left. Don't forget to wirte the walking",
+    "commands too, and remember to write the turning command at",
+    "the right place. You got this!"
     ]
+getWelcomeLevelText 3 = 
+    ["Yay, time for level 3! So, level 3 is actually the same map as",
+    "level 1. Let me explain. You're getting really good at writing",
+    "code for me to reach the finish line, but writing 'walk' over and",
+    "over again is kind of insufficient, don't you think? This is where",
+    "loops get handy. Loops are just a few lines of code ran over and",
+    "over again. Just what we need! In our case, when you wirte a loop",
+    "you start with the keyword 'while', followed by a state I may be in,",
+    "like 'blocked' or 'notBlocked'. Then you wirte the code that you want",
+    "to be repeated, which in this case is 'walk'. So, a while loop is like",
+    " saying 'as long as Tom is in this state, do this repeatedly'.",
+    "",
+    "Let's try this! Write a while loop for me to walk as long as I am",
+    "not finished with the level. The state for this is 'notFinished'.",
+    "Good Luck!"] 
+getWelcomeLevelText _ = error "Invalid level number, expected integer between 1 and 2"
+
 
 
 drawGrid :: Grid -> IO Picture
-drawGrid (Grid name grid) = do
-    grid' <- mapM (\(row, col, char) -> drawCell char (-xCorner+(32+col*cellSize), yCorner-(32+row*cellSize))) grid
-    return $ pictures grid'
+drawGrid (Grid _ g) = do
+    drawnG <- mapM (\(row, col, char) -> drawCell char (-xCorner+(32+col*cellSize), yCorner-(32+row*cellSize))) g
+    return $ pictures drawnG
 
 drawCell :: Char -> (Float, Float) -> IO Picture
 drawCell 'W' (x,y) = do
-    wall <- loadBMP wall
-    return $ translate x y wall
+    wallLoaded <- loadBMP wall
+    return $ translate x y wallLoaded
 drawCell 'E' (x,y) = return $ translate x y $ color (makeColor 0.42 0.74 1 1) $ rectangleSolid cellSize cellSize
 drawCell 'C' (x,y) = return $ translate x y $ color white $ rectangleSolid cellSize cellSize
 drawCell 'G' (x,y) = return $ translate x y $ color green $ rectangleSolid cellSize cellSize
-
+drawCell _ _ = return $ error "Invalid character. A grid should only include the characters 'W', 'C', 'E', and 'G'."
 
 indexText :: Int -> IO String -> IO Grid
 indexText lvl file = do
@@ -260,32 +263,24 @@ tooLong :: String -> Bool
 tooLong str = length str >= 20
 
 nextLine :: [String] -> String -> Char -> [String]
-nextLine code word c = removeLastWord code ++ [word ++ [c]]
+nextLine content word c = removeLastWord content ++ [word ++ [c]]
 
 newLine :: [String] -> [String]
-newLine code = code ++ [""]
+newLine content = content ++ [""]
 
 removeLastWord :: [String] -> [String]
-removeLastWord code =
-    init code ++ [unwords $ init $ words' $ last code]
+removeLastWord content =
+    init content ++ [unwords $ init $ words' $ last content]
 
 getLastWord :: [String] -> String
-getLastWord code = last $ words' $ last code
+getLastWord content = last $ words' $ last content
 
 backSpace :: [String] -> [String]
 backSpace [] = []
-backSpace code =
-    if null (last code)
-        then init code
-        else init code ++ [init (last code)]
-
-splitText :: [String] -> Int -> [String] -> [String]
-splitText lines a [] = lines
-splitText [] a (word:words) = splitText [word] (length word) words
-splitText lines a (word:words) =
-    if a + length word + 1 <= 10
-        then splitText (init lines ++ [last lines ++ " " ++ word]) (a + length word + 1) words
-        else lines ++ splitText [word] 0 words
+backSpace content =
+    if null (last content)
+        then init content
+        else init content ++ [init (last content)]
 
 drawText :: [String] -> Point -> Color -> Picture
 drawText lines (x,y) c = color c $ pictures (go lines (x,y)) where
@@ -293,14 +288,15 @@ drawText lines (x,y) c = color c $ pictures (go lines (x,y)) where
     go (l:ls) (x,y) = translate x y (scale 0.2 0.2 $ text l) : go ls (x, y - 30)
 
 renderText :: Float -> Float -> String -> Picture
-renderText x y txt = translate x y $ scale 0.2 0.2 $ text txt
+renderText x y content = translate x y $ scale 0.2 0.2 $ text content
 
 -- All grids --
 
 loadGrid :: Int -> IO Grid
-loadGrid 1 = indexText 1 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level1.txt"
-loadGrid 2 = indexText 2 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level2.txt"
-
+loadGrid 2 = indexText 1 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level1.txt"
+loadGrid 1 = indexText 2 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level2.txt"
+loadGrid 3 = indexText 3 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level3.txt"
+loadGrid _ = error "Invalid level number, expected integer between 1 and 3"
 
 -- Helper functions -- 
 

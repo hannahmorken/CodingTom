@@ -51,15 +51,31 @@ renderTalkBox world getText = do
             then translate (-xCorner + 160) (-yCorner + 230) unitImg
             else blank]
 
+printDir :: Direction -> String
+printDir dir = case dir of
+    North -> "nor"
+    South -> "sou"
+    West -> "west"
+    East -> "east"
+
+printBool :: Bool -> String
+printBool True = "true"
+printBool False = "false"
 
 renderGame :: World -> IO Picture
 renderGame world = do
     images <- getCorrectImages (tom world)
     file <- loadGrid (level world)
     gameMap <- drawGrid file
-    --putStrLn $ "is blocked?" ++ go (tom world) file
+    putStrLn $ "is not at goal?: " ++ printBool (not $ isAtGoal (tom world) (grid world))
+    putStrLn $ "cmdQ length: " ++ printBool (length (commandQueue (tom world)) < 20)
+    putStrLn $ "is blocked?: " ++ printBool (isBlocked (tom world) (grid world))
+    putStrLn $ "length of cmdQ: " ++ show (length (commandQueue (tom world)))
+    putStrLn $ "commandQ: " ++ show (commandQueue (tom world))
+    putStrLn ""
     --putStrLn $ "commands: " ++ unwords (commandQueue (tom world))
     --putStrLn $ "code: " ++ unwords (code world)
+    --putStrLn $ "tom direction" ++ printDir (dir (tom world))
     return $ pictures [
         gameMap,
         drawButton 0.8 typeButton,
@@ -75,7 +91,7 @@ updateWorld _ world = do
     file <- loadGrid (level world)
     case gameState world of
         Menu -> return world
-        Game -> return $ wrongCode $ levelComplete world {tom = updateTom (tom world) file, grid = file}
+        Game -> return $ levelComplete world {tom = updateTom (tom world) file, grid = file}
         TalkBox -> return world
 
 render :: World -> IO Picture
@@ -87,12 +103,15 @@ render world =
 
 main :: IO ()
 main = playIO window white 7 initWorld render eventHandler updateWorld
-    --quickCheck prop_revapp
-    --quickCheck prop_split_inv
-    --prop_cmdList_identity
+    {-do 
+        quickCheck prop_walk_when_blocked
+        quickCheck prop_turnLeftFourTimes
+        quickCheck prop_turnAround_turnLeftTwice
+        quickCheck prop_interpret_cmds
+        quickCheck prop_check_commandQueue-}
     {-do
         putStrLn "Enter a command: "
         input <- getLine
-        case parse statement "" input of
+        case parse statements "" input of
             Left bundle -> putStrLn (errorBundlePretty bundle)
             Right cmd -> putStrLn $ "Parsed command: " ++ show cmd-}
