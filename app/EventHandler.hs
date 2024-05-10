@@ -2,17 +2,20 @@ module EventHandler where
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.Point
 import qualified Control.Monad.State as S
+import Control.Monad
+import Control.Concurrent
+import Control.Concurrent.STM
 
 import GameCore
 import Interpreter
 import Text.Megaparsec
 import System.Exit (exitSuccess)
 
-eventHandler :: Event -> World -> IO World
-eventHandler event world = do
-    grid' <- loadGrid (level world)
+eventHandler :: TMVar String -> TMVar TomState -> Event -> World -> IO World
+eventHandler cVar sVar event world = do
+    g <- loadGrid (level world)
     case gameState world of
-        Menu    -> handleMenu event world grid'
+        Menu    -> handleMenu cVar sVar event world g
         Game    -> handleGame event world
         TalkBox -> handleTalkBox event world
 
@@ -22,21 +25,23 @@ handleQuit mousePos world =
         then exitSuccess
         else return world
 
-handleMenu :: Event -> World -> Grid -> IO World
-handleMenu (EventMotion mousePos) world _ = checkHover mousePos world [playGameButton]
-handleMenu (EventKey (MouseButton LeftButton) Down _ mousePos) world g = do
+handleMenu :: TMVar String -> TMVar TomState -> Event -> World -> Grid -> IO World
+handleMenu _ _ (EventMotion mousePos) world _ = checkHover mousePos world [playGameButton]
+handleMenu cVar sVar (EventKey (MouseButton LeftButton) Down _ mousePos) world g = do
     _ <- handleQuit mousePos world
     if pointInBox mousePos (getUpperCorner playGameButton) (getLowerCorner playGameButton)
-        then return $ initWorldGame 1 g
+        then return $ initWorldGame cVar sVar 1 g
         else return world
-handleMenu _ world _ = return world
+handleMenu _ _ _ world _ = return world
 
 handleTalkBox :: Event -> World -> IO World
 handleTalkBox (EventMotion mousePos) world = checkHover mousePos world [okButton]
 handleTalkBox (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
     _ <- handleQuit mousePos world
     if pointInBox mousePos (getUpperCorner okButton) (getLowerCorner okButton)
-        then return $ world {gameState = Game, hover = Nothing}
+        then if level world <= 4
+            then return $ world {gameState = Game, hover = Nothing}
+            else exitSuccess
         else return world
 handleTalkBox _ world = return world
 
@@ -64,17 +69,19 @@ handleGame (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
         then do
             case parse statements "" (unwords (code world)) of
                 Left _ -> return world {codeColor = red}
-                Right stmts -> return $ S.execState (evalMult stmts) (world {codeColor = black})
+                Right stmts -> do
+                    threadID <- forkIO $ void $ S.execStateT (evalMult stmts) (world {codeColor = black})
+                    return $ world {codeColor = black, interpThread = Just threadID}
 
     else if pointInBox mousePos (getUpperCorner emptyButton) (getLowerCorner emptyButton)
         then return $ world {code = [], codeColor = black}
 
+    else if pointInBox mousePos (getUpperCorner hintButton) (getLowerCorner hintButton)
+        then return $ world {gameState = TalkBox}
+
     else return world
 
 handleGame _ world = return world
-
-go :: World -> String
-go world = if isAtGoal (tom world) (grid world) then "true" else "false"
 
 typeChar :: World -> Char -> World
 typeChar world c = world {code = init' (code world) ++ [last' (code world) ++ [c]]}

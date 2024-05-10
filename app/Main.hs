@@ -6,18 +6,18 @@ import EventHandler
 import Tom
 import ImageLoader
 
-import Testing
-import Test.QuickCheck
-
+--import Testing
+--import Test.QuickCheck
 import Interpreter
 import Text.Megaparsec
+import Control.Concurrent.STM
 
 window :: Display
 window = InWindow "Coding Tom" windowSize (10, 10)
 
 getCorrectImages :: Tom -> IO [Picture]
-getCorrectImages tom =
-    case dir tom of
+getCorrectImages t =
+    case dir t of
         East  -> loadRightImages
         West  -> loadLeftImages
         North -> loadRightImages
@@ -25,12 +25,12 @@ getCorrectImages tom =
 
 renderMenu :: World -> IO Picture
 renderMenu world = do
-    image <- loadBMP (img (tom world))
+    image <- loadBMP tomStraight
     return $ pictures [
         drawButton 0.8 playGameButton,
         drawButton 0.8 quitButton,
         hovering (hover world),
-        uncurry translate (pos (tom world)) image]
+        uncurry translate (pos (tom world)) $ scale 3 3 image]
 
 renderTalkBox :: World -> (Int -> [String]) -> IO Picture
 renderTalkBox world getText = do
@@ -44,54 +44,36 @@ renderTalkBox world getText = do
         drawButton 0.8 okButton,
         drawButton 0.8 quitButton,
         hovering (hover world),
-        --scale 2.2 2.2
-        translate (-xCorner + 80) (-yCorner + 70) tomImg,
+        translate (-xCorner + 80) (-yCorner + 70) $ scale 2.2 2.2 tomImg,
         drawText (getText (level world)) (-xCorner + 85, yCorner - 100) black,
         if level world == 1 
             then translate (-xCorner + 160) (-yCorner + 230) unitImg
             else blank]
-
-printDir :: Direction -> String
-printDir dir = case dir of
-    North -> "nor"
-    South -> "sou"
-    West -> "west"
-    East -> "east"
-
-printBool :: Bool -> String
-printBool True = "true"
-printBool False = "false"
 
 renderGame :: World -> IO Picture
 renderGame world = do
     images <- getCorrectImages (tom world)
     file <- loadGrid (level world)
     gameMap <- drawGrid file
-    putStrLn $ "is not at goal?: " ++ printBool (not $ isAtGoal (tom world) (grid world))
-    putStrLn $ "cmdQ length: " ++ printBool (length (commandQueue (tom world)) < 20)
-    putStrLn $ "is blocked?: " ++ printBool (isBlocked (tom world) (grid world))
-    putStrLn $ "length of cmdQ: " ++ show (length (commandQueue (tom world)))
-    putStrLn $ "commandQ: " ++ show (commandQueue (tom world))
-    putStrLn ""
-    --putStrLn $ "commands: " ++ unwords (commandQueue (tom world))
-    putStrLn $ "code: " ++ unwords (code world)
-    --putStrLn $ "tom direction" ++ printDir (dir (tom world))
     return $ pictures [
         gameMap,
         drawButton 0.8 typeButton,
         drawButton 0.8 emptyButton,
         drawButton 0.8 quitButton,
+        drawButton 0.8 hintButton,
         hovering (hover world),
         line [(lineX,-lineY),(lineX,lineY)],
         drawTom images world,
         drawText (code world) (-xCorner + (cellSize/2), yCorner - cellSize) (codeColor world)]
 
-updateWorld :: Float -> World -> IO World
-updateWorld _ world = do
+updateWorld :: TMVar String -> TMVar TomState -> Float -> World -> IO World
+updateWorld cVar sVar _ world = do
     file <- loadGrid (level world)
     case gameState world of
         Menu -> return world
-        Game -> return $ levelComplete world {tom = updateTom (tom world) file, grid = file}
+        Game -> do        
+            newTom <- updateTom (tom world) file
+            levelComplete cVar sVar world {tom = newTom, grid = file}
         TalkBox -> return world
 
 render :: World -> IO Picture
@@ -102,13 +84,12 @@ render world =
         TalkBox -> renderTalkBox world getWelcomeLevelText
 
 main :: IO ()
-main = playIO window white 7 initWorld render eventHandler updateWorld
-    {-do 
-        quickCheck prop_walk_when_blocked
-        quickCheck prop_turnLeftFourTimes
-        quickCheck prop_turnAround_turnLeftTwice
-        quickCheck prop_interpret_cmds
-        quickCheck prop_check_commandQueue-}
+main = do
+    initG <- loadGrid 0
+    cVar <- newEmptyTMVarIO
+    sVar <- newEmptyTMVarIO
+    playIO window white 7 (initWorld cVar sVar initG) render (eventHandler cVar sVar) (updateWorld cVar sVar)
+    
     {-do
         putStrLn "Enter a command: "
         input <- getLine

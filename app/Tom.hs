@@ -1,6 +1,8 @@
 module Tom where
 import GameCore
 import Graphics.Gloss
+import Control.Concurrent.STM
+import Control.Monad
 
 -- Tom's movement --
 
@@ -29,7 +31,7 @@ turn d =
         East -> West
 
 isBlocked :: Tom -> Grid -> Bool
-isBlocked tom g = getSeg g (newPos (pos tom) (dir tom) 20) == 'W'
+isBlocked t g = getSeg g (newPos (pos t) (dir t) 20) == 'W'
 
 newPos :: Point -> Direction -> Float -> Point
 newPos (x,y) d step =
@@ -39,41 +41,44 @@ newPos (x,y) d step =
         East -> (x + step, y)
         West -> (x - step, y)
 
-readCommand :: Tom -> Tom
-readCommand tom@(Tom {commandQueue = []}) = tom
-readCommand tom@(Tom {commandQueue = (command:commands)}) =
+readCommand :: Tom -> IO Tom
+readCommand t = do
+    command <- atomically $ tryTakeTMVar (commandVar t)
     case command of
-        "walk" -> tom {
-            endPoint = newPos (pos tom) (dir tom) 64,
-            commandQueue = commands}
-        "turnAround" -> tom {
-            dir = turn (dir tom),
-            commandQueue = commands
-        }
-        "turnLeft" -> tom {
-            dir = turnLeft (dir tom),
-            commandQueue = commands
-        }
-        "turnRight" -> tom {
-            dir = turnRight (dir tom),
-            commandQueue = commands
-        }
-    
-updateTom :: Tom -> Grid -> Tom
-updateTom tom g = 
-    if endPoint tom == pos tom
-        then readCommand (tom {walkFrame = 1})
-        else move tom g
+        Just "walk" -> return t {
+            nextPoint = newPos (pos t) (dir t) 64}
+        Just "turnAround" -> return t {
+            dir = turn (dir t)}
+        Just "turnLeft" -> return t {
+            dir = turnLeft (dir t)}
+        Just "turnRight" -> return t {
+            dir = turnRight (dir t)}
+        _ -> return t
 
-move :: Tom -> Grid -> Tom
-move tom g =
-    if isBlocked tom g
-        then tom {
-            walkFrame = 1, endPoint = pos tom}
-            --, commandQueue = emptyCmdQ (commandQueue tom) "walk"}
-        else tom {
-            pos = newPos (pos tom) (dir tom) 4, 
-            walkFrame = walkFrame tom + 1}
+forceTMVar :: TMVar TomState -> TomState -> STM ()
+forceTMVar sVar s = do
+    newVar <- tryPutTMVar sVar s
+    if newVar 
+        then return () 
+        else void $ swapTMVar sVar s
 
-emptyCmdQ :: [String] -> String -> [String]
-emptyCmdQ cmdQ s = filter (/= s) cmdQ
+updateTom :: Tom -> Grid -> IO Tom
+updateTom t g =
+    if nextPoint t == pos t
+        then do
+            atomically $ forceTMVar (stateVar t) Waiting
+            readCommand (t {walkFrame = 1})
+        else move t g
+
+move :: Tom -> Grid -> IO Tom
+move t g = do
+    if isBlocked t g
+        then do
+            atomically $ forceTMVar (stateVar t) Stuck
+            return t {
+            walkFrame = 1, nextPoint = pos t}
+        else do
+            atomically $ forceTMVar (stateVar t) Moving
+            return t {
+            pos = newPos (pos t) (dir t) 4, 
+            walkFrame = walkFrame t + 1}

@@ -1,6 +1,10 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module GameCore where
 import Graphics.Gloss
 import ImageLoader
+import Control.Concurrent
+import Control.Concurrent.STM
 
 import Data.List (find)
 
@@ -10,11 +14,20 @@ import Data.List (find)
 data Tom = Tom {
     pos :: Point,
     dir :: Direction,
-    img :: FilePath,
     walkFrame :: Int,
-    endPoint :: Point,
-    commandQueue :: [String]
-} deriving (Eq, Show)
+    nextPoint :: Point,
+    commandVar :: TMVar String,
+    stateVar :: TMVar TomState,
+    blocked :: Bool
+} deriving (Eq)
+
+data TomState = Moving | Waiting | Stuck
+
+instance Show Tom where
+    show Tom{..} = concat
+        [ "Tom {pos =", show pos, ", dir = ", show dir
+        , ", walkFrame = ", show walkFrame, ", nextPoint = "
+        , show nextPoint, "}"]
 
 data World = World {
     tom :: Tom,
@@ -23,7 +36,8 @@ data World = World {
     level :: Int,
     grid :: Grid,
     hover :: Maybe Button,
-    codeColor :: Color
+    codeColor :: Color,
+    interpThread :: Maybe ThreadId
 }
 
 data Direction = North | South | West | East deriving (Eq, Show)
@@ -43,36 +57,39 @@ data Button = Button {
 
 -- Initial menu and game world --
 
-initWorld :: World
-initWorld = World {
-    tom = Tom {pos = (0,100), dir = East, img = tomStraight, walkFrame = 1, endPoint = (0,100), commandQueue = []},
+initWorld :: TMVar String -> TMVar TomState -> Grid -> World
+initWorld cVar sVar g = World {
+    tom = Tom {pos = (0,100), dir = East, walkFrame = 1, nextPoint = (0,100), commandVar = cVar, stateVar = sVar, blocked = False},
     code = [],
     gameState = Menu,
-    level = 1,
-    grid = Grid 0 [],
+    level = 0,
+    grid = g,
     hover = Nothing,
-    codeColor = black
+    codeColor = black,
+    interpThread = Nothing
 }
 
-startTom :: Tom
-startTom = Tom {
+startTom :: TMVar String -> TMVar TomState -> Tom
+startTom cVar sVar = Tom {
     pos = (0,32),
     dir = East,
-    img = tomStandRight,
     walkFrame = 1,
-    endPoint = (0,32),
-    commandQueue = []
+    nextPoint = (0,32),
+    commandVar = cVar,
+    stateVar = sVar,
+    blocked = False
 }
 
-initWorldGame :: Int -> Grid -> World
-initWorldGame l g = World {
-    tom = startTom,
+initWorldGame :: TMVar String -> TMVar TomState -> Int -> Grid -> World
+initWorldGame cVar sVar l g = World {
+    tom = startTom cVar sVar,
     code = ["Hello!"],
     gameState = TalkBox,
     level = l,
     grid = g,
     hover = Nothing,
-    codeColor = black
+    codeColor = black,
+    interpThread = Nothing
 }
 
 
@@ -108,11 +125,11 @@ talkBox =
 
 playGameButton :: Button
 playGameButton = Button {
-    middle = (0, 0),
-    width = 330,
-    height = 50,
-    txt = "This is a game menu",
-    txtPos = (-150,-10)}
+    middle = (0, -50),
+    width = 300,
+    height = 80,
+    txt = "Play Coding Tom",
+    txtPos = (-110,-60)}
 
 typeButton :: Button
 typeButton = Button {
@@ -131,7 +148,7 @@ emptyButton = Button {
     txtPos = (lineX-38, lineY-40)}
 
 gameButtons :: [Button]
-gameButtons = [typeButton, emptyButton]
+gameButtons = [typeButton, emptyButton, hintButton]
 
 okButton :: Button
 okButton = Button {
@@ -147,7 +164,16 @@ quitButton = Button {
     width = 35,
     height = 35,
     txt = "Q",
-    txtPos = (xCorner - 38, yCorner - 40)
+    txtPos = (xCorner - 40, yCorner - 40)
+}
+
+hintButton :: Button
+hintButton = Button {
+    middle = (xCorner - 70, yCorner - 30),
+    width = 35,
+    height = 35,
+    txt = "H",
+    txtPos = (xCorner - 80, yCorner - 40)
 }
 
 drawButton :: Float -> Button -> Picture
@@ -178,14 +204,20 @@ getSeg (Grid _ g) (x,y) =
             xDiv a b = fromIntegral (floor $ (xCorner + a) / b)
 
 isAtGoal :: Tom -> Grid -> Bool
-isAtGoal tom g = getSeg g (pos tom) == 'G'
+isAtGoal t g = getSeg g (pos t) == 'G'
 
-levelComplete :: World -> World
-levelComplete world =
-    let grid' = grid world in
-    if isAtGoal (tom world) grid'
-        then initWorldGame (level world + 1) grid'
-    else world
+levelComplete :: TMVar String -> TMVar TomState -> World -> IO World
+levelComplete cVar sVar world = do
+    let g = grid world
+
+    if isAtGoal (tom world) g then do
+        maybe (return ()) killThread (interpThread world)
+        atomically $ tryTakeTMVar cVar
+        atomically $ tryTakeTMVar sVar
+        return $ initWorldGame cVar sVar (level world + 1) g
+
+    else return world
+
 
 -- Drawing the game map --
 
@@ -220,22 +252,43 @@ getWelcomeLevelText 2 =
     ]
 getWelcomeLevelText 3 = 
     ["Yay, time for level 3! So, level 3 is actually the same map as",
-    "level 1. Let me explain. You're getting really good at writing",
+    "level 1 - let me explain. You're getting really good at writing",
     "code for me to reach the finish line, but writing 'walk' over and",
     "over again is kind of insufficient, don't you think? This is where",
     "loops get handy. Loops are just a few lines of code ran over and",
     "over again. Just what we need! In our case, when you wirte a loop",
     "you start with the keyword 'while', followed by a state I may be in,",
-    "like 'blocked' or 'notBlocked'. Then you wirte the code that you want",
-    "to be repeated, which in this case is 'walk'. So, a while loop is like",
-    " saying 'as long as Tom is in this state, do this repeatedly'.",
+    "like 'blocked' or 'notBlocked'. Then you wirte a start parens, and",
+    "the code that you want to be repeated, which in this case is 'walk',",
+    "and end with an end parens. So, a while loop is like saying 'as",
+    "long as Tom is in this state, do this repeatedly'.",
     "",
     "Let's try this! Write a while loop for me to walk as long as I am",
     "not finished with the level. The state for this is 'notFinished'.",
-    "Good Luck!"] 
-getWelcomeLevelText _ = error "Invalid level number, expected integer between 1 and 2"
-
-
+    "Good Luck!"
+    ] 
+    --TODO: forklar hvor parentes skal vaere osv
+getWelcomeLevelText 4 = 
+    ["Amazing work! Let's move on to level 4. Okay, you have now learnt",
+    "about loops which is a great way to do something several times.",
+    "However, as you'll see when we start this next level, we need to do a",
+    "turn to the right at some point. So, writing a while loop like the",
+    "last one won't work. We need to incorporate a turn into the loop in",
+    "some way. This is where if-statements come in handy. An if-statement",
+    "is basically saying 'if something is true, do this. If not, do this'.",
+    "You write an if-statement like this: you start with the keyword 'if',",
+    "followed by a state I might be in, like 'blocked' or 'notBlocked'.",
+    "Then you write a command, which in this case is 'turnRight'. Lastly,",
+    "you write the keyword 'else', followed by another command that will be",
+    "done if the state is not true. Makes sense?",
+    "",
+    "Now, let's try this! Write a while loop with an if-statement in it.",
+    "Don't remember where to put the parens? This is the outline:",
+    "while ___ (if ___ (___) else (___))"
+    ]
+getWelcomeLevelText 5 = 
+    ["Done with the game!"]
+getWelcomeLevelText _ = error "Invalid level number, expected integer between 0 and 4"
 
 drawGrid :: Grid -> IO Picture
 drawGrid (Grid _ g) = do
@@ -252,9 +305,9 @@ drawCell 'G' (x,y) = return $ translate x y $ color green $ rectangleSolid cellS
 drawCell _ _ = return $ error "Invalid character. A grid should only include the characters 'W', 'C', 'E', and 'G'."
 
 indexText :: Int -> IO String -> IO Grid
-indexText lvl file = do
-    text <- file
-    return $ Grid lvl $ concatMap (\(ind, row) -> zip3 (repeat ind) [0..] row) $ zip [0..] $ lines text
+indexText lvl str = do
+    file <- str
+    return $ Grid lvl $ concatMap (\(ind, row) -> zip3 (repeat ind) [0..] row) $ zip [0..] $ lines file
 
 
 -- Handling the text --
@@ -283,20 +336,24 @@ backSpace content =
         else init content ++ [init (last content)]
 
 drawText :: [String] -> Point -> Color -> Picture
-drawText lines (x,y) c = color c $ pictures (go lines (x,y)) where
+drawText content (x,y) c = color c $ pictures (go content (x,y)) where
     go [] _ = []
-    go (l:ls) (x,y) = translate x y (scale 0.2 0.2 $ text l) : go ls (x, y - 30)
+    go (l:ls) (a,b) = translate a b (scale 0.2 0.2 $ text l) : go ls (a, b - 30)
 
 renderText :: Float -> Float -> String -> Picture
 renderText x y content = translate x y $ scale 0.2 0.2 $ text content
 
+
 -- All grids --
 
 loadGrid :: Int -> IO Grid
-loadGrid 2 = indexText 1 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level1.txt"
-loadGrid 1 = indexText 2 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level2.txt"
-loadGrid 3 = indexText 3 $ readFile "/Users/hannahmorken/Desktop/20232024/INF221/CodingTom/resources/grids/level3.txt"
-loadGrid _ = error "Invalid level number, expected integer between 1 and 3"
+loadGrid 0 = indexText 0 $ readFile "./resources/grids/level0.txt"
+loadGrid 1 = indexText 1 $ readFile "./resources/grids/level1.txt"
+loadGrid 2 = indexText 2 $ readFile "./resources/grids/level2.txt"
+loadGrid 3 = indexText 3 $ readFile "./resources/grids/level3.txt"
+loadGrid 4 = indexText 4 $ readFile "./resources/grids/level4.txt"
+loadGrid _ = indexText 0 $ readFile "./resources/grids/level0.txt"
+
 
 -- Helper functions -- 
 
@@ -314,6 +371,6 @@ init' [] = []
 init' xs = init xs
 
 words' :: String -> [String]
-words' line
-    | last line == ' ' = words line ++ [""]
-    | otherwise = words line
+words' str
+    | last str == ' ' = words str ++ [""]
+    | otherwise = words str
