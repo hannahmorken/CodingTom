@@ -5,11 +5,6 @@ import GameCore
 import EventHandler
 import Tom
 import ImageLoader
-
---import Testing
---import Test.QuickCheck
-import Interpreter
-import Text.Megaparsec
 import Control.Concurrent.STM
 
 window :: Display
@@ -89,10 +84,3 @@ main = do
     cVar <- newEmptyTMVarIO
     sVar <- newEmptyTMVarIO
     playIO window white 7 (initWorld cVar sVar initG) render (eventHandler cVar sVar) (updateWorld cVar sVar)
-    
-    {-do
-        putStrLn "Enter a command: "
-        input <- getLine
-        case parse statements "" input of
-            Left bundle -> putStrLn (errorBundlePretty bundle)
-            Right cmd -> putStrLn $ "Parsed command: " ++ show cmd-}
