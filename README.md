@@ -1,8 +1,8 @@
 # CodingTom
 #### How to build, run and play Coding Tom
-1. Clone repository CodingTom from GitHub
-2. In a terminal, navigate to CodingTom
-3. Run the command cabal build to run the game (make sure you have Cabal installed on your computer).
+1. Clone repository CodingTom from GitHub.
+2. In a terminal, navigate to CodingTom.
+3. Run the command "cabal run" to run the game (make sure you have Cabal installed on your computer) in a terminal.
 4. You have now started the game, and are looking at the menu for Coding Tom.
 5. Press the “start game” button with your mouse.
 6. Press the “ok!” button to start the first level.
