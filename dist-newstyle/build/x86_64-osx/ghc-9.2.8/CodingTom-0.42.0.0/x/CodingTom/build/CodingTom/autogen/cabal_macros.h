@@ -10,16 +10,16 @@
   (major1) == 0 && (major2) <  42 || \
   (major1) == 0 && (major2) == 42 && (minor) <= 0)
 #endif /* MIN_VERSION_CodingTom */
-/* package QuickCheck-2.15 */
-#ifndef VERSION_QuickCheck
-#define VERSION_QuickCheck "2.15"
-#endif /* VERSION_QuickCheck */
-#ifndef MIN_VERSION_QuickCheck
-#define MIN_VERSION_QuickCheck(major1,major2,minor) (\
-  (major1) <  2 || \
-  (major1) == 2 && (major2) <  15 || \
-  (major1) == 2 && (major2) == 15 && (minor) <= 0)
-#endif /* MIN_VERSION_QuickCheck */
+/* package CodingTom-0.42.0.0 */
+#ifndef VERSION_CodingTom
+#define VERSION_CodingTom "0.42.0.0"
+#endif /* VERSION_CodingTom */
+#ifndef MIN_VERSION_CodingTom
+#define MIN_VERSION_CodingTom(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  42 || \
+  (major1) == 0 && (major2) == 42 && (minor) <= 0)
+#endif /* MIN_VERSION_CodingTom */
 /* package base-4.16.4.0 */
 #ifndef VERSION_base
 #define VERSION_base "4.16.4.0"
@@ -60,6 +60,16 @@
   (major1) == 2 && (major2) <  2 || \
   (major1) == 2 && (major2) == 2 && (minor) <= 2)
 #endif /* MIN_VERSION_mtl */
+/* package stm-2.5.0.2 */
+#ifndef VERSION_stm
+#define VERSION_stm "2.5.0.2"
+#endif /* VERSION_stm */
+#ifndef MIN_VERSION_stm
+#define MIN_VERSION_stm(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  5 || \
+  (major1) == 2 && (major2) == 5 && (minor) <= 0)
+#endif /* MIN_VERSION_stm */
 /* package text-1.2.5.0 */
 #ifndef VERSION_text
 #define VERSION_text "1.2.5.0"
