@@ -7,10 +7,11 @@
 5. Press the “start game” button with your mouse.
 6. Press the “ok!” button to start the first level.
 7. You will now reach the first level. At the right side of the window is where you will write you code. Press the ‘X’ button to remove the “Hello!” text in the code editor. Typing is as normal, but note there is no text cursor. Do not use backspace to delete characters in the text. Instead, use the left arrow button. 
-8. Write “walk” 5 times with either space or new line between each command and press the “run code” button to make the character, Tom, walk and finish the level. 
-9. Your are now at the introduction text to the next level where turning is introduced. Start this level, and write code as told in the text.
-10. If you need to read the introduction text to the current level again, press the “H” button in the upper right corner, next to the “Q” button. The progress made in the current level will not go away when pressing this button.
-11. To close the game, press the “Q” button at the top right corner. N.B., closing the game can be slow when far into it.
+8. Write “walk” 5 times with either space or new line between each command and press the “run code” button to make the character, Tom, walk and finish the level.
+9. At each level, the goal is to reach the green cell. Once Tom reaches this cell, the game will automatically continue to the next level, starting with an introduction text.
+10. Your are now at the introduction text to the next level where turning is introduced. Start this level, and write code as told in the text.
+11. If you need to read the introduction text to the current level again, press the “H” button in the upper right corner, next to the “Q” button. The progress made in the current level will not go away when pressing this button.
+12. To close the game, press the “Q” button at the top right corner. N.B., closing the game can be slow when far into it.
 
 #### Solutions to each level
 (A whitespace is interpreted the same as a newline.)
