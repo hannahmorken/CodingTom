@@ -225,72 +225,6 @@ drawTom images world = translate x y $ images !! (walkFrame (tom world) `mod` le
   where
     (x, y) = pos (tom world)
 
-getWelcomeLevelText :: Int -> [String]
-getWelcomeLevelText 1 =
-    ["Hello and welcome to Coding Tom! My name is Tom, and together",
-    "we will learn how to code! I need help to get through a series of",
-    "labyrinths, and your code will help me to do just that! Give me",
-    "instrouctions at each level on how to walk to get to the end by",
-    "writing simple code for me to read.",
-    "",
-    "Lets start simple. For this first labyrinth I just need to take a few",
-    "steps forward to get to the end, so simply just ask me to walk 5",
-    "times. Type 'walk' in the code editor on the left side of the screen",
-    "to get me to walk the lenght of one unit. You can choose if you",
-    "want to type it with a space between each command, or write each",
-    "command in a new line.",
-    "",
-    "Psst! This is one unit"]
-getWelcomeLevelText 2 =
-    ["That was great! You have just written your first few lines of code,",
-    "and we are already on to level 2! For this next level I see I need",
-    "to take a turn to the left at one point. This is easy though, just",
-    "type 'turnLeft', and I'll turn left. Don't forget to wirte the walking",
-    "commands too, and remember to write the turning command at",
-    "the right place. You got this!"
-    ]
-getWelcomeLevelText 3 = 
-    ["Yay, time for level 3! So, level 3 is actually the same map as",
-    "level 1 - let me explain. You're getting really good at writing",
-    "code for me to reach the finish line, but writing 'walk' over and",
-    "over again is kind of insufficient, don't you think? This is where",
-    "loops get handy. Loops are just a few lines of code ran over and",
-    "over again. Just what we need! In our case, when you wirte a loop",
-    "you start with the keyword 'while', followed by a state I may be in,",
-    "like 'blocked' or 'notBlocked'. Then you wirte a start parens, and",
-    "the code that you want to be repeated, which in this case is 'walk',",
-    "and end with an end parens. So, a while loop is like saying 'as",
-    "long as Tom is in this state, do this repeatedly'. This is the",
-    "outline of the while loop:",
-    "while ___ (___)",
-    "",
-    "Let's try this! Write a while loop for me to walk as long as I am",
-    "not finished with the level. The state for this is 'notFinished'.",
-    "Good Luck!"
-    ] 
-    --TODO: forklar hvor parentes skal vaere osv
-getWelcomeLevelText 4 = 
-    ["Amazing work! Let's move on to level 4. Okay, you have now learnt",
-    "about loops which is a great way to do something several times.",
-    "However, as you'll see when we start this next level, we need to do a",
-    "turn to the right at some point. So, writing a while loop like the",
-    "last one won't work. We need to incorporate a turn into the loop in",
-    "some way. This is where if-statements come in handy. An if-statement",
-    "is basically saying 'if something is true, do this. If not, do this'.",
-    "You write an if-statement like this: you start with the keyword 'if',",
-    "followed by a state I might be in, like 'blocked' or 'notBlocked'.",
-    "Then you write a command, which in this case is 'turnRight'. Lastly,",
-    "you write the keyword 'else', followed by another command that will be",
-    "done if the state is not true. Makes sense?",
-    "",
-    "Now, let's try this! Write a while loop with an if-statement in it.",
-    "Don't remember where to put the parens? This is the outline:",
-    "while ___ (if ___ (___) else (___))"
-    ]
-getWelcomeLevelText 5 = 
-    ["Done with the game!"]
-getWelcomeLevelText _ = error "Invalid level number, expected integer between 0 and 4"
-
 drawGrid :: Grid -> IO Picture
 drawGrid (Grid _ g) = do
     drawnG <- mapM (\(row, col, char) -> drawCell char (-xCorner+(32+col*cellSize), yCorner-(32+row*cellSize))) g
@@ -354,6 +288,74 @@ loadGrid 2 = indexText 2 $ readFile "./resources/grids/level2.txt"
 loadGrid 3 = indexText 3 $ readFile "./resources/grids/level3.txt"
 loadGrid 4 = indexText 4 $ readFile "./resources/grids/level4.txt"
 loadGrid _ = indexText 0 $ readFile "./resources/grids/level0.txt"
+
+
+-- Levels welcome text --
+
+getWelcomeLevelText :: Int -> [String]
+getWelcomeLevelText 1 =
+    ["Hello and welcome to Coding Tom! My name is Tom, and together",
+    "we will learn how to code! I need help to get through a series of",
+    "labyrinths, and your code will help me to do just that! Give me",
+    "instrouctions at each level on how to walk to get to the end by",
+    "writing simple code for me to read.",
+    "",
+    "Lets start simple. For this first labyrinth I just need to take a few",
+    "steps forward to get to the end, so simply just ask me to walk 5",
+    "times. Type 'walk' in the code editor on the left side of the screen",
+    "to get me to walk the lenght of one unit. You can choose if you",
+    "want to type it with a space between each command, or write each",
+    "command in a new line.",
+    "",
+    "Psst! This is one unit"
+    ]    
+getWelcomeLevelText 2 =
+    ["That was great! You have just written your first few lines of code,",
+    "and we are already on to level 2! For this next level I see I need",
+    "to take a turn to the left at one point. This is easy though, just",
+    "type 'turnLeft', and I'll turn left. Don't forget to wirte the walking",
+    "commands too, and remember to write the turning command at",
+    "the right place. You got this!"
+    ]   
+getWelcomeLevelText 3 = 
+    ["Yay, time for level 3! So, level 3 is actually the same map as",
+    "level 1 - let me explain. You're getting really good at writing",
+    "code for me to reach the finish line, but writing 'walk' over and",
+    "over again is kind of insufficient, don't you think? This is where",
+    "loops get handy. Loops are just a few lines of code ran over and",
+    "over again. Just what we need! In our case, when you wirte a loop",
+    "you start with the keyword 'while', followed by a state I may be in,",
+    "like 'blocked' or 'notBlocked'. Then you wirte a start parens, and",
+    "the code that you want to be repeated, which in this case is 'walk',",
+    "and end with an end parens. So, a while loop is like saying 'as",
+    "long as Tom is in this state, do this repeatedly'. This is the",
+    "outline of the while loop:",
+    "while ___ (___)",
+    "",
+    "Let's try this! Write a while loop for me to walk as long as I am",
+    "not finished with the level. The state for this is 'notFinished'.",
+    "Good Luck!"
+    ] 
+getWelcomeLevelText 4 = 
+    ["Amazing work! Let's move on to level 4. Okay, you have now learnt",
+    "about loops which is a great way to do something several times.",
+    "However, as you'll see when we start this next level, we need to do a",
+    "turn to the right at some point. So, writing a while loop like the",
+    "last one won't work. We need to incorporate a turn into the loop in",
+    "some way. This is where if-statements come in handy. An if-statement",
+    "is basically saying 'if something is true, do this. If not, do this'.",
+    "You write an if-statement like this: you start with the keyword 'if',",
+    "followed by a state I might be in, like 'blocked' or 'notBlocked'.",
+    "Then you write a command, which in this case is 'turnRight'. Lastly,",
+    "you write the keyword 'else', followed by another command that will be",
+    "done if the state is not true. Makes sense?",
+    "",
+    "Now, let's try this! Write a while loop with an if-statement in it.",
+    "Don't remember where to put the parens? This is the outline:",
+    "while ___ (if ___ (___) else (___))"
+    ]
+getWelcomeLevelText 5 = ["Done with the game!"]
+getWelcomeLevelText _ = error "Invalid level number, expected integer between 0 and 4"
 
 
 -- Helper functions -- 
