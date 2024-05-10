@@ -81,7 +81,6 @@ eval' stmt = do
     eval stmt
 
 
--- TODO: Make this prettier
 eval :: Statement -> Interpreter ()
 eval (CmdList []) = return ()
 eval (CmdList (c:cs)) = do
